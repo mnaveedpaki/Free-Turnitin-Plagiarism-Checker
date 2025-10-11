@@ -97,7 +97,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
 app.post('/api/check-plagiarism', async (req, res) => {
     try {
-        const { fileId } = req.body;
+        const { fileId, excludeQuotes } = req.body;
         
         if (!fileId) {
             return res.status(400).json({ error: 'File ID is required' });
@@ -116,7 +116,7 @@ app.post('/api/check-plagiarism', async (req, res) => {
         console.log('Checking plagiarism for file, text length:', text.length);
         
         // Perform plagiarism check
-        const results = await plagiarismChecker.checkPlagiarism(text);
+        const results = await plagiarismChecker.checkPlagiarism(text, excludeQuotes);
         
         // Clean up file
         fs.unlinkSync(filePath);
@@ -134,7 +134,7 @@ app.post('/api/check-plagiarism', async (req, res) => {
 
 app.post('/api/check-text', async (req, res) => {
     try {
-        const { text } = req.body;
+        const { text, excludeQuotes } = req.body;
         
         if (!text || text.trim().length < 50) {
             return res.status(400).json({ error: 'Text must be at least 50 characters long' });
@@ -143,7 +143,7 @@ app.post('/api/check-text', async (req, res) => {
         console.log('Checking plagiarism for text, length:', text.length);
         
         // Perform plagiarism check
-        const results = await plagiarismChecker.checkPlagiarism(text);
+        const results = await plagiarismChecker.checkPlagiarism(text, excludeQuotes);
         
         res.json({
             success: true,
