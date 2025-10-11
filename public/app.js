@@ -11,9 +11,13 @@ class PlagiarismChecker {
         this.resultsSection = document.getElementById('resultsSection');
         this.errorSection = document.getElementById('errorSection');
         this.fileInfo = document.getElementById('fileInfo');
+        this.excludeQuotesToggle = document.getElementById('excludeQuotesToggle');
         
         this.currentFileId = null;
         this.isProcessing = false;
+        this.excludeQuotes = false;
+        this.currentResults = null;
+        this.plagiarismChart = null;
         
         this.initializeEventListeners();
         this.updateCharCount();
@@ -33,6 +37,34 @@ class PlagiarismChecker {
         // Button events
         this.checkButton.addEventListener('click', this.checkPlagiarism.bind(this));
         this.clearButton.addEventListener('click', this.clearAll.bind(this));
+        
+        // Toggle events
+        this.excludeQuotesToggle.addEventListener('click', () => {
+            this.excludeQuotes = !this.excludeQuotes;
+            this.excludeQuotesToggle.classList.toggle('active');
+        });
+        
+        // Dark mode toggle
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const darkModeIcon = document.getElementById('darkModeIcon');
+        
+        // Check saved preference
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            document.body.classList.add('dark-mode');
+            darkModeIcon.classList.replace('fa-moon', 'fa-sun');
+        }
+        
+        darkModeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            
+            if (document.body.classList.contains('dark-mode')) {
+                darkModeIcon.classList.replace('fa-moon', 'fa-sun');
+                localStorage.setItem('darkMode', 'enabled');
+            } else {
+                darkModeIcon.classList.replace('fa-sun', 'fa-moon');
+                localStorage.setItem('darkMode', 'disabled');
+            }
+        });
         
         // Prevent default drag behaviors
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -137,12 +169,18 @@ class PlagiarismChecker {
             if (this.currentFileId) {
                 // Check file
                 endpoint = '/api/check-plagiarism';
-                data = { fileId: this.currentFileId };
+                data = { 
+                    fileId: this.currentFileId,
+                    excludeQuotes: this.excludeQuotes
+                };
                 this.showProgress('Analyzing document for plagiarism...');
             } else {
                 // Check text
                 endpoint = '/api/check-text';
-                data = { text: this.textInput.value.trim() };
+                data = { 
+                    text: this.textInput.value.trim(),
+                    excludeQuotes: this.excludeQuotes
+                };
                 this.showProgress('Analyzing text for plagiarism...');
             }
             
@@ -265,6 +303,7 @@ class PlagiarismChecker {
     }
     
     showResults(results) {
+        this.currentResults = results;
         const resultsBody = this.resultsSection.querySelector('.card-body');
         
         // Determine score class
@@ -278,34 +317,41 @@ class PlagiarismChecker {
                 <div class="plagiarism-score ${scoreClass}">
                     ${results.plagiarism_percentage}%
                 </div>
-                <h6>Plagiarism Detected</h6>
+                <h6 class="mt-3">Plagiarism Detected</h6>
+                <button class="btn btn-download mt-3" onclick="plagiarismChecker.downloadPDF()">
+                    <i class="fas fa-file-pdf me-2"></i>Download PDF Report
+                </button>
             </div>
             
             <div class="row results-stats-row">
                 <div class="col-6 col-md-3">
-                    <div class="stat-card">
+                    <div class="stat-card stat-primary">
                         <span class="stat-value">${results.total_words.toLocaleString()}</span>
                         <span class="stat-label">Total Words</span>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <div class="stat-card">
+                    <div class="stat-card stat-${scoreClass === 'score-low' ? 'success' : scoreClass === 'score-critical' ? 'danger' : 'warning'}">
                         <span class="stat-value">${results.plagiarized_words.toLocaleString()}</span>
                         <span class="stat-label">Flagged Words</span>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <div class="stat-card">
+                    <div class="stat-card stat-warning">
                         <span class="stat-value">${results.sources_found}</span>
                         <span class="stat-label">Sources Found</span>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <div class="stat-card">
+                    <div class="stat-card stat-primary">
                         <span class="stat-value">${results.matches ? results.matches.length : 0}</span>
                         <span class="stat-label">Matches</span>
                     </div>
                 </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="plagiarismChart"></canvas>
             </div>
         `;
         
@@ -384,7 +430,179 @@ class PlagiarismChecker {
         
         resultsBody.innerHTML = html;
         this.resultsSection.style.display = 'block';
+        
+        // Render chart
+        this.renderChart(results);
+        
         this.resultsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    renderChart(results) {
+        const ctx = document.getElementById('plagiarismChart');
+        if (!ctx) return;
+        
+        // Destroy previous chart if exists
+        if (this.plagiarismChart) {
+            this.plagiarismChart.destroy();
+        }
+        
+        const originalPercentage = 100 - results.plagiarism_percentage;
+        
+        this.plagiarismChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Original Content', 'Plagiarized Content'],
+                datasets: [{
+                    data: [originalPercentage, results.plagiarism_percentage],
+                    backgroundColor: [
+                        'rgba(16, 185, 129, 0.8)',
+                        'rgba(239, 68, 68, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgb(16, 185, 129)',
+                        'rgb(239, 68, 68)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 14,
+                                weight: '600'
+                            }
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Content Originality Analysis',
+                        font: {
+                            size: 18,
+                            weight: '700'
+                        },
+                        padding: {
+                            top: 10,
+                            bottom: 20
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.parsed.toFixed(1) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    downloadPDF() {
+        if (!this.currentResults) return;
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const results = this.currentResults;
+        
+        // Header
+        doc.setFontSize(22);
+        doc.setTextColor(37, 99, 235);
+        doc.text('Plagiarism Analysis Report', 20, 20);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 28);
+        
+        // Summary Box
+        doc.setFillColor(248, 250, 252);
+        doc.rect(20, 35, 170, 35, 'F');
+        
+        doc.setFontSize(16);
+        doc.setTextColor(15, 23, 42);
+        doc.text('Plagiarism Score', 25, 45);
+        
+        doc.setFontSize(32);
+        const scoreColor = results.plagiarism_percentage > 30 ? [239, 68, 68] : 
+                          results.plagiarism_percentage > 15 ? [245, 158, 11] : [16, 185, 129];
+        doc.setTextColor(...scoreColor);
+        doc.text(`${results.plagiarism_percentage}%`, 25, 62);
+        
+        // Statistics
+        doc.setFontSize(12);
+        doc.setTextColor(15, 23, 42);
+        doc.text('Analysis Summary', 20, 85);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        const stats = [
+            `Total Words: ${results.total_words.toLocaleString()}`,
+            `Flagged Words: ${results.plagiarized_words.toLocaleString()}`,
+            `Sources Found: ${results.sources_found}`,
+            `Matches Detected: ${results.matches ? results.matches.length : 0}`
+        ];
+        
+        stats.forEach((stat, i) => {
+            doc.text(stat, 25, 95 + (i * 7));
+        });
+        
+        // Analysis Summary
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        doc.text('Assessment:', 20, 125);
+        doc.setFontSize(10);
+        doc.setTextColor(71, 85, 105);
+        const summary = doc.splitTextToSize(results.analysis_summary, 170);
+        doc.text(summary, 20, 133);
+        
+        // Sources
+        if (results.sources && results.sources.length > 0) {
+            let yPos = 150;
+            doc.setFontSize(12);
+            doc.setTextColor(15, 23, 42);
+            doc.text('Top Sources Found:', 20, yPos);
+            
+            doc.setFontSize(9);
+            results.sources.slice(0, 5).forEach((source, i) => {
+                yPos += 10;
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                doc.setTextColor(37, 99, 235);
+                const title = doc.splitTextToSize(source.title || 'Untitled', 170);
+                doc.text(title[0], 25, yPos);
+                
+                yPos += 5;
+                doc.setTextColor(100, 116, 139);
+                doc.text(`Similarity: ${(source.avg_similarity * 100).toFixed(1)}% | Matches: ${source.match_count}`, 25, yPos);
+                
+                yPos += 4;
+                doc.setTextColor(148, 163, 184);
+                const urlText = doc.splitTextToSize(source.url, 160);
+                doc.text(urlText[0], 25, yPos);
+                yPos += 5;
+            });
+        }
+        
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
+            doc.text('Generated by Advanced Plagiarism Checker v4.0', 105, 285, { align: 'center' });
+        }
+        
+        // Save
+        doc.save('plagiarism-report.pdf');
     }
     
     hideResults() {
@@ -415,6 +633,7 @@ class PlagiarismChecker {
 }
 
 // Initialize the application when DOM is loaded
+let plagiarismChecker;
 document.addEventListener('DOMContentLoaded', () => {
-    new PlagiarismChecker();
+    plagiarismChecker = new PlagiarismChecker();
 });

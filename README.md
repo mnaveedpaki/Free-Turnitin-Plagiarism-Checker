@@ -4,19 +4,24 @@ A lightweight, user-friendly plagiarism checker for those who may not have acces
 
 > **Note**: While the tool is functional, it is still a simple project, and bugs or issues may be present. I created this to simplify the plagiarism detection process for everyone, so your feedback and suggestions are highly welcome. Feel free to join me in improving the tool.
 
-### **Current Features:**
+### **Current Features (v4.0):**
 
-- ✅ **Plagiarism Detection**  
-- ✅ **PDF Report Generation**  
-- ✅ **File Support for .txt, .doc, .docx, .pdf**  
-- ✅ **User-Friendly Interface**  
-- ✅ **Responsive Design for All Devices**
+- ✅ **Advanced Plagiarism Detection** - Multi-layer similarity analysis using AI & NLP
+- ✅ **Visual Analytics** - Interactive Chart.js charts showing content originality
+- ✅ **PDF Report Generation** - Download comprehensive plagiarism reports
+- ✅ **Citation Exclusion** - Toggle to exclude quotes and references from analysis
+- ✅ **Dark Mode** - Eye-friendly dark theme with persistent preference
+- ✅ **File Support** - .txt, .doc, .docx, .pdf (up to 10MB)
+- ✅ **Modern UI** - Clean, flat design without gradients
+- ✅ **Responsive Design** - Works perfectly on all devices
 
-### **Upcoming Features:**
+### **What's New in v4.0:**
 
-- ⏳ **AI-Powered Plagiarism Detection**  
-- ⏳ **Improved Charts and Analytics**  
-- ⏳ **Controls for Including/Excluding References or Quotes**
+- 🎨 **Redesigned UI** - Modern flat design with better color combinations
+- 📊 **Visual Analytics** - Doughnut charts showing plagiarism distribution
+- 📄 **PDF Reports** - One-click download of detailed analysis reports
+- 🌙 **Dark Mode** - Toggle between light and dark themes
+- 📝 **Quote Exclusion** - Optionally exclude cited text from analysis
 
 
 ### **Why Use Plagiarism Checker?**

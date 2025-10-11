@@ -1,7 +1,7 @@
 {
   "name": "free-plagiarism-checker",
-  "version": "3.0.0",
-  "description": "Professional-grade plagiarism detection system",
+  "version": "4.0.0",
+  "description": "Professional-grade plagiarism detection system with visual analytics and PDF reports",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
