@@ -404,7 +404,7 @@ const Index = () => {
                             <Bot className="w-4 h-4 text-muted-foreground" />
                             <p className="text-sm text-muted-foreground">AI Content</p>
                           </div>
-                          <p className={`text-4xl font-bold ${getAIScoreColor(result.aiDetection.fakePercentage || 0)}`} data-testid="text-ai-percentage">
+                          <p className="text-4xl font-bold text-red-600 dark:text-red-400" data-testid="text-ai-percentage">
                             {result.aiDetection.fakePercentage || 0}%
                           </p>
                         </div>
@@ -413,7 +413,7 @@ const Index = () => {
                             <User className="w-4 h-4 text-muted-foreground" />
                             <p className="text-sm text-muted-foreground">Human Content</p>
                           </div>
-                          <p className={`text-4xl font-bold ${getScoreColor(100 - (result.aiDetection.fakePercentage || 0))}`} data-testid="text-human-percentage">
+                          <p className="text-4xl font-bold text-green-600 dark:text-green-400" data-testid="text-human-percentage">
                             {result.aiDetection.humanPercentage || (100 - (result.aiDetection.fakePercentage || 0))}%
                           </p>
                         </div>
