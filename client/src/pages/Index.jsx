@@ -4,9 +4,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, FileSearch, AlertCircle, Bot, User, Upload, FileText, X } from "lucide-react";
+import { Loader2, FileSearch, AlertCircle, Bot, User, Upload, FileText, X, Download } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { checkTextSchema } from "../../../shared/schema";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 
 const Index = () => {
   const [text, setText] = useState("");
@@ -15,6 +18,7 @@ const Index = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [inputMode, setInputMode] = useState("text"); // "text" or "file"
   const fileInputRef = useRef(null);
+  const reportRef = useRef(null);
   const {
     toast
   } = useToast();
@@ -187,6 +191,249 @@ const Index = () => {
       setIsChecking(false);
     }
   };
+
+  const downloadPDF = async () => {
+    if (!result) return;
+
+    try {
+      toast({
+        title: "Generating PDF",
+        description: "Please wait while we generate your report..."
+      });
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let yPosition = 20;
+
+      // Title
+      pdf.setFontSize(22);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(37, 99, 235);
+      pdf.text('Plagiarism & AI Detection Report', 105, yPosition, { align: 'center' });
+
+      yPosition += 10;
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(107, 114, 128);
+      pdf.text(`Generated: ${new Date().toLocaleString()}`, 105, yPosition, { align: 'center' });
+
+      if (result.fileName) {
+        yPosition += 5;
+        pdf.text(`File: ${result.fileName}`, 105, yPosition, { align: 'center' });
+      }
+
+      yPosition += 15;
+
+      // Summary Table
+      autoTable(pdf, {
+        startY: yPosition,
+        head: [['Analysis Summary', 'Results']],
+        body: [
+          ['Total Sentences Analyzed', result.totalSentences.toString()],
+          ['Plagiarism Score', `${result.plagiarismPercentage}%`],
+          ['Plagiarized Sentences', `${result.plagiarizedSentences} of ${result.totalSentences}`],
+          ['Overall Similarity', `${result.overallScore}%`]
+        ],
+        headStyles: {
+          fillColor: [37, 99, 235],
+          textColor: [255, 255, 255],
+          fontSize: 12,
+          fontStyle: 'bold'
+        },
+        styles: {
+          fontSize: 10,
+          cellPadding: 4
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 80 },
+          1: { halign: 'right' }
+        },
+        didParseCell: function (data) {
+          if (data.row.index === 1 && data.column.index === 1) {
+            data.cell.textColor = result.plagiarismPercentage > 20 ? [220, 38, 38] : [22, 163, 74];
+          }
+          if (data.row.index === 2 && data.column.index === 1) {
+            data.cell.textColor = result.plagiarizedSentences > 0 ? [220, 38, 38] : [22, 163, 74];
+          }
+        }
+      });
+
+      yPosition = pdf.lastAutoTable.finalY + 10;
+
+      // AI Detection Table
+      if (result.aiDetection?.status) {
+        autoTable(pdf, {
+          startY: yPosition,
+          head: [['AI Content Detection', 'Results']],
+          body: [
+            ['AI Content', `${result.aiDetection.fakePercentage || 0}%`],
+            ['Human Content', `${result.aiDetection.humanPercentage || 0}%`],
+            ['Total Words', (result.aiDetection.textWords || 0).toString()],
+            ['AI-Generated Words', (result.aiDetection.aiWords || 0).toString()]
+          ],
+          headStyles: {
+            fillColor: [234, 88, 12],
+            textColor: [255, 255, 255],
+            fontSize: 12,
+            fontStyle: 'bold'
+          },
+          styles: {
+            fontSize: 10,
+            cellPadding: 4
+          },
+          columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 80 },
+            1: { halign: 'right' }
+          },
+          didParseCell: function (data) {
+            if (data.row.index === 0 && data.column.index === 1) {
+              data.cell.textColor = [220, 38, 38];
+            }
+            if (data.row.index === 1 && data.column.index === 1) {
+              data.cell.textColor = [22, 163, 74];
+            }
+          }
+        });
+
+        yPosition = pdf.lastAutoTable.finalY + 10;
+      }
+
+      // Plagiarized Content Details
+      const plagiarizedSentences = result.results.filter(item => item.isPlagiarized);
+      if (plagiarizedSentences.length > 0) {
+        const plagiarizedData = plagiarizedSentences.map((item, index) => [
+          (index + 1).toString(),
+          item.sentence,
+          `${item.similarity}%`,
+          item.sources.length > 0 ? item.sources.slice(0, 2).map(s => s.url).join('\\n') : 'No sources'
+        ]);
+
+        autoTable(pdf, {
+          startY: yPosition,
+          head: [['#', 'Plagiarized Sentence', 'Similarity', 'Sources']],
+          body: plagiarizedData,
+          headStyles: {
+            fillColor: [220, 38, 38],
+            textColor: [255, 255, 255],
+            fontSize: 11,
+            fontStyle: 'bold'
+          },
+          styles: {
+            fontSize: 9,
+            cellPadding: 3,
+            overflow: 'linebreak'
+          },
+          columnStyles: {
+            0: { cellWidth: 10, halign: 'center' },
+            1: { cellWidth: 80 },
+            2: { cellWidth: 20, halign: 'center' },
+            3: { cellWidth: 70, fontSize: 7 }
+          },
+          bodyStyles: {
+            textColor: [220, 38, 38]
+          }
+        });
+
+        yPosition = pdf.lastAutoTable.finalY + 10;
+      }
+
+      // AI-Generated Content
+      if (result.aiDetection?.status && result.aiDetection.sentences && result.aiDetection.sentences.length > 0) {
+        const aiData = result.aiDetection.sentences.map((sentence, index) => [
+          (index + 1).toString(),
+          sentence
+        ]);
+
+        autoTable(pdf, {
+          startY: yPosition,
+          head: [['#', 'AI-Generated Sentence']],
+          body: aiData,
+          headStyles: {
+            fillColor: [234, 88, 12],
+            textColor: [255, 255, 255],
+            fontSize: 11,
+            fontStyle: 'bold'
+          },
+          styles: {
+            fontSize: 9,
+            cellPadding: 3,
+            overflow: 'linebreak'
+          },
+          columnStyles: {
+            0: { cellWidth: 10, halign: 'center' },
+            1: { cellWidth: 170 }
+          },
+          bodyStyles: {
+            textColor: [234, 88, 12]
+          }
+        });
+
+        yPosition = pdf.lastAutoTable.finalY + 10;
+      }
+
+      // Complete Sentence Analysis
+      const allSentencesData = result.results.map((item, index) => [
+        (index + 1).toString(),
+        item.sentence,
+        `${item.similarity}%`,
+        item.isPlagiarized ? 'YES' : 'NO',
+        item.sources.length.toString()
+      ]);
+
+      autoTable(pdf, {
+        startY: yPosition,
+        head: [['#', 'Sentence', 'Similarity', 'Plagiarized', 'Sources']],
+        body: allSentencesData,
+        headStyles: {
+          fillColor: [107, 114, 128],
+          textColor: [255, 255, 255],
+          fontSize: 11,
+          fontStyle: 'bold'
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+          overflow: 'linebreak'
+        },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 110 },
+          2: { cellWidth: 20, halign: 'center' },
+          3: { cellWidth: 20, halign: 'center' },
+          4: { cellWidth: 20, halign: 'center' }
+        },
+        didParseCell: function (data) {
+          if (data.column.index === 3 && data.row.index >= 0 && data.section === 'body') {
+            if (data.cell.text[0] === 'YES') {
+              data.cell.styles.textColor = [220, 38, 38];
+              data.cell.styles.fontStyle = 'bold';
+            } else {
+              data.cell.styles.textColor = [22, 163, 74];
+            }
+          }
+        }
+      });
+
+      // Save the PDF
+      const fileName = result.fileName
+        ? `plagiarism-report-${result.fileName.replace(/\.[^/.]+$/, '')}.pdf`
+        : `plagiarism-report-${new Date().toISOString().split('T')[0]}.pdf`;
+
+      pdf.save(fileName);
+
+      toast({
+        title: "PDF Downloaded",
+        description: "Your report has been saved successfully!"
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getScoreColor = score => {
     if (score < 20) return "text-green-600 dark:text-green-400";
     if (score < 50) return "text-yellow-600 dark:text-yellow-400";
@@ -356,10 +603,16 @@ const Index = () => {
           </CardContent>
         </Card>
 
-        {result && <div className="mt-8 space-y-6">
+        {result && <div ref={reportRef} className="mt-8 space-y-6">
           <Card className="shadow-xl border-2" data-testid="card-report">
             <CardHeader>
-              <CardTitle>Analysis Report</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Analysis Report</CardTitle>
+                <Button onClick={downloadPDF} variant="outline" size="sm">
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
